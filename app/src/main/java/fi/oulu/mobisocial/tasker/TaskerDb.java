@@ -19,12 +19,12 @@ import java.util.ArrayList;
 public class TaskerDb extends SQLiteOpenHelper {
     public static final int DATABASE_VERSION = 1;
     public static final String DATABASE_NAME = "tasker.db";
-    public static final String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS" + TaskerContract.TaskEntry.TABLE_NAME +
+    public static final String SQL_CREATE_TABLE = "CREATE TABLE IF NOT EXISTS " + TaskerContract.TaskEntry.TABLE_NAME +
             "(" +
-            TaskerContract.TaskEntry._ID + "INTEGER PRIMARY KEY," +
-            TaskerContract.TaskEntry.TIMESTAMP + "REAL DEFAULT 0," +
-            TaskerContract.TaskEntry.TASK + "TEXT DEFAULT '' ," +
-            TaskerContract.TaskEntry.TASK_DUE + "REAL DEFAULT 0" +
+            TaskerContract.TaskEntry._ID + " INTEGER PRIMARY KEY," +
+            TaskerContract.TaskEntry.TIMESTAMP + " REAL DEFAULT 0," +
+            TaskerContract.TaskEntry.TASK + " TEXT DEFAULT '' ," +
+            TaskerContract.TaskEntry.TASK_DUE + " REAL DEFAULT 0" +
             ")";
 
     public TaskerDb(Context context) {
@@ -41,14 +41,14 @@ public class TaskerDb extends SQLiteOpenHelper {
 
     }
 
-    public boolean createTask(TaskerDb db, String task, String timeDue) {
+    public boolean createTask(String task, String timeDue) {
         try {
             ContentValues entry = new ContentValues();
             entry.put(TaskerContract.TaskEntry.TIMESTAMP, System.currentTimeMillis());
             entry.put(TaskerContract.TaskEntry.TASK, task);
             entry.put(TaskerContract.TaskEntry.TASK_DUE, timeDue);
 
-            long results = db.getWritableDatabase().insert(TaskerContract.TaskEntry.TABLE_NAME, null, entry);
+            long results = getWritableDatabase().insert(TaskerContract.TaskEntry.TABLE_NAME, null, entry);
 
             return results > -1 ? true : false;
 
@@ -57,12 +57,13 @@ public class TaskerDb extends SQLiteOpenHelper {
         }
     }
 
-    public ArrayList<TaskerContract.TaskEntry> readTask(TaskerDb db) {
+    public ArrayList<TaskerContract.TaskEntry> readTask() {
         try {
 
-            Cursor data = db.getReadableDatabase().query(TaskerContract.TaskEntry.TABLE_NAME, null, null, null, null, null, TaskerContract.TaskEntry.TIMESTAMP, null);
+            Cursor data = getReadableDatabase().query(TaskerContract.TaskEntry.TABLE_NAME, null, null, null, null, null, TaskerContract.TaskEntry.TIMESTAMP, null);
             ArrayList<TaskerContract.TaskEntry> taskEntries = new ArrayList<TaskerContract.TaskEntry>();
             if (data != null && data.moveToFirst()) {
+
                 do {
                     TaskerContract.TaskEntry entry = new TaskerContract.TaskEntry();
 
@@ -72,7 +73,7 @@ public class TaskerDb extends SQLiteOpenHelper {
                     entry.setTaskDue(data.getString(data.getColumnIndex(TaskerContract.TaskEntry.TASK_DUE)));
 
                     taskEntries.add(entry);
-                } while (data.moveToFirst());
+                } while (data.moveToNext());
                 data.close();
             }
             return taskEntries;
@@ -81,7 +82,7 @@ public class TaskerDb extends SQLiteOpenHelper {
         }
     }
 
-    public boolean updateTask(TaskerDb db, String task, String timeDue, String Id) {
+    public boolean updateTask(String task, String timeDue, String Id) {
         try {
 
             ContentValues values = new ContentValues();
@@ -92,7 +93,7 @@ public class TaskerDb extends SQLiteOpenHelper {
                 values.put(TaskerContract.TaskEntry.TASK_DUE, timeDue);
 
             String whereClause = TaskerContract.TaskEntry._ID + "=" + Id;
-            int results = db.getWritableDatabase().update(TaskerContract.TaskEntry.TABLE_NAME, values, whereClause, null);
+            int results = getWritableDatabase().update(TaskerContract.TaskEntry.TABLE_NAME, values, whereClause, null);
             return (results >= 1) ? true : false;
 
         } catch (Exception ex) {
@@ -100,13 +101,13 @@ public class TaskerDb extends SQLiteOpenHelper {
         }
     }
 
-    public boolean deleteTask(TaskerDb db, String Id) {
+    public boolean deleteTask( String Id) {
         try {
             if (Id == null || Id.isEmpty())
                 throw new Exception("Id of Database entry to update cannot be null");
 
             String whereClause = TaskerContract.TaskEntry._ID + "=" + Id;
-            int results = db.getWritableDatabase().delete(TaskerContract.TaskEntry.TABLE_NAME, whereClause, null);
+            int results = getWritableDatabase().delete(TaskerContract.TaskEntry.TABLE_NAME, whereClause, null);
             return results > 0 ? true : false;
 
         } catch (Exception ex) {

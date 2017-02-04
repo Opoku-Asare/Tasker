@@ -1,5 +1,8 @@
 package fi.oulu.mobisocial.tasker;
 
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
+import android.content.ContentQueryMap;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -16,10 +19,16 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.DatePicker;
+import android.widget.EditText;
 import android.widget.ListView;
+import android.widget.TimePicker;
 
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
@@ -28,7 +37,10 @@ public class MainActivity extends AppCompatActivity {
     public static final String PASSWORD_KEY = "PASSWORD_KEY";
     public static final String LOG_ID = "Tasker";
     public static SharedPreferences appSharePreference;
+    public static TaskerDb database;
     private ListView listView;
+    private ArrayList<String> listData;
+    private TaskArrayAdaptor listViewDataAdaptor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,13 +55,17 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 AlertDialog dialog = buildTaskDialog();
                 dialog.show();
-
+              
             }
         });
 
+        appSharePreference = PreferenceManager.getDefaultSharedPreferences(this);
+        database = new TaskerDb(getApplicationContext());
+
         listView = (ListView) findViewById(R.id.mainListView);
         prepareListView();
-        appSharePreference = PreferenceManager.getDefaultSharedPreferences(this);
+
+
     }
 
     private void startLoginActivity() {
@@ -70,11 +86,48 @@ public class MainActivity extends AppCompatActivity {
 
     private AlertDialog buildTaskDialog() {
         AlertDialog.Builder dialog = new AlertDialog.Builder(this);
-        dialog.setView(getLayoutInflater().inflate(R.layout.create_task_view, null));
+        View dialogView = getLayoutInflater().inflate(R.layout.create_task_view, null);
+        dialog.setView(dialogView);
+        final Calendar calendar = Calendar.getInstance();
+        Button pickAdate = (Button) dialogView.findViewById(R.id.pickDateButton);
+        Button pickATime = (Button) dialogView.findViewById(R.id.pickTimeButton);
+        final EditText taskInfo = (EditText) dialogView.findViewById(R.id.taskInfo);
 
+
+        pickAdate.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                DatePickerDialog pickerDialog = new DatePickerDialog(view.getContext(), new DatePickerDialog.OnDateSetListener() {
+                    @Override
+                    public void onDateSet(DatePicker datePicker, int year, int month, int day) {
+                        calendar.set(year, month, day);
+                    }
+                }, calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH));
+                pickerDialog.show();
+            }
+        });
+
+
+        pickATime.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                TimePickerDialog pickerDialog = new TimePickerDialog(view.getContext(), new TimePickerDialog.OnTimeSetListener() {
+                    @Override
+                    public void onTimeSet(TimePicker timePicker, int hourOfDay, int minute) {
+                        calendar.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                        calendar.set(Calendar.MINUTE, minute);
+                    }
+                }, calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true);
+                pickerDialog.show();
+            }
+        });
         dialog.setPositiveButton("Create", new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialogInterface, int i) {
+                String task = taskInfo.getText().toString().trim();
+                String taskDue = Long.toString(calendar.getTimeInMillis());
+                database.createTask(task, taskDue);
+
 
             }
         });
@@ -89,20 +142,36 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void prepareListView() {
-        String[] values = new String[]{"Android", "iPhone", "WindowsMobile",
+        ArrayList<TaskerContract.TaskEntry> entries = database.readTask();
+
+        /*String[] values = new String[]{"Android", "iPhone", "WindowsMobile",
                 "Blackberry", "WebOS", "Ubuntu", "Windows7", "Max OS X",
                 "Linux", "OS/2", "Ubuntu", "Windows7", "Max OS X", "Linux",
                 "OS/2", "Ubuntu", "Windows7", "Max OS X", "Linux", "OS/2",
-                "Android", "iPhone", "WindowsMobile"};
+                "Android", "iPhone", "WindowsMobile"};*/
 
-        ArrayList<String> data = new ArrayList<String>();
-        for (String entry : values) {
-            data.add(entry);
+        listData= new ArrayList<String>();
+
+        for (TaskerContract.TaskEntry entry : entries) {
+            listData.add(entry.getTask());
         }
 
-        TaskArrayAdaptor adaptor = new TaskArrayAdaptor(this, R.layout.list_view_item, R.id.sample_list_view_item, data);
-        listView.setAdapter(adaptor);
+        listViewDataAdaptor = new TaskArrayAdaptor(this, R.layout.list_view_item, R.id.sample_list_view_item, listData);
+        listView.setAdapter(listViewDataAdaptor);
 
+    }
+
+    private void refreshListView() {
+        ArrayList<TaskerContract.TaskEntry> entries = database.readTask();
+        listData.clear();
+
+
+        for (TaskerContract.TaskEntry entry : entries) {
+            listData.add(entry.getTask());
+        }
+
+        listViewDataAdaptor.addAll(listData);
+        listViewDataAdaptor.notifyDataSetChanged();
     }
 
     @Override
@@ -115,6 +184,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        database.close();
     }
 
     @Override
