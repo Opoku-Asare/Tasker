@@ -2,23 +2,32 @@ package fi.oulu.mobisocial.tasker;
 
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.os.ParcelUuid;
+import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity {
-    public static boolean User_Logged_In = false;
+    public static boolean USER_LOGGED_IN = false;
+    public static final String USERNAME_KEY = "USERNAME_KEY";
+    public static final String PASSWORD_KEY = "PASSWORD_KEY";
+    public static final String LOG_ID = "Tasker";
+    public static SharedPreferences appSharePreference;
     private ListView listView;
 
     @Override
@@ -32,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                AlertDialog dialog=buildTaskDialog();
+                AlertDialog dialog = buildTaskDialog();
                 dialog.show();
 
             }
@@ -40,7 +49,7 @@ public class MainActivity extends AppCompatActivity {
 
         listView = (ListView) findViewById(R.id.mainListView);
         prepareListView();
-
+        appSharePreference = PreferenceManager.getDefaultSharedPreferences(this);
     }
 
     private void startLoginActivity() {
@@ -48,9 +57,20 @@ public class MainActivity extends AppCompatActivity {
         intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
         startActivity(intent);
     }
-    private AlertDialog buildTaskDialog( ){
-        AlertDialog.Builder dialog= new AlertDialog.Builder(this);
-        dialog.setView(getLayoutInflater().inflate(R.layout.create_task_view,null));
+
+    public static void saveToSharedPreference(String key, String value) {
+
+        appSharePreference.edit().putString(key.toString(), value.toString()).apply();
+    }
+
+    public static String retrieveFromSharePreference(String key) {
+
+        return appSharePreference.getString(key, "");
+    }
+
+    private AlertDialog buildTaskDialog() {
+        AlertDialog.Builder dialog = new AlertDialog.Builder(this);
+        dialog.setView(getLayoutInflater().inflate(R.layout.create_task_view, null));
 
         dialog.setPositiveButton("Create", new DialogInterface.OnClickListener() {
             @Override
@@ -67,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
         });
         return dialog.create();
     }
+
     private void prepareListView() {
         String[] values = new String[]{"Android", "iPhone", "WindowsMobile",
                 "Blackberry", "WebOS", "Ubuntu", "Windows7", "Max OS X",
@@ -88,9 +109,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
 
         super.onResume();
-        if (!User_Logged_In) {
+
+        if (!USER_LOGGED_IN) {
             startLoginActivity();
         }
+
+
     }
 
     @Override
@@ -111,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
 
         switch (item.getItemId()) {
             case R.id.logoutMenuItems:
-                User_Logged_In = false;
+                USER_LOGGED_IN = false;
                 startLoginActivity();
                 break;
             default:

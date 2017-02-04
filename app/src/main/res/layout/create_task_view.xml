@@ -2,7 +2,8 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:orientation="vertical"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:weightSum="1">
 
     <EditText
         android:layout_width="match_parent"
@@ -10,7 +11,8 @@
         android:inputType="textPersonName"
         android:ems="10"
         android:id="@+id/taskInfo"
-        android:hint="Task" />
+        android:hint="Task"
+        android:layout_weight="0.78" />
 
     <DatePicker
         android:layout_width="wrap_content"
