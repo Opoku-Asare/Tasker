@@ -1,14 +1,10 @@
-package fi.oulu.mobisocial.tasker;
+package fi.oulu.mobisocial.tasker.Contract;
 
-import android.app.ActivityManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.provider.Settings;
-import android.text.style.TextAppearanceSpan;
-import android.widget.ArrayAdapter;
 
 import java.util.ArrayList;
 
@@ -41,7 +37,7 @@ public class TaskerDb extends SQLiteOpenHelper {
 
     }
 
-    public boolean createTask(String task, String timeDue) {
+    public long createTask(String task, String timeDue) {
         try {
             ContentValues entry = new ContentValues();
             entry.put(TaskerContract.TaskEntry.TIMESTAMP, System.currentTimeMillis());
@@ -50,17 +46,17 @@ public class TaskerDb extends SQLiteOpenHelper {
 
             long results = getWritableDatabase().insert(TaskerContract.TaskEntry.TABLE_NAME, null, entry);
 
-            return results > -1 ? true : false;
+            return results ;
 
         } catch (Exception ex) {
-            return false;
+            return -1;
         }
     }
 
     public ArrayList<TaskerContract.TaskEntry> readTask() {
         try {
-
-            Cursor data = getReadableDatabase().query(TaskerContract.TaskEntry.TABLE_NAME, null, null, null, null, null, TaskerContract.TaskEntry.TIMESTAMP, null);
+            String orderBy= TaskerContract.TaskEntry.TIMESTAMP+" DESC";
+            Cursor data = getReadableDatabase().query(TaskerContract.TaskEntry.TABLE_NAME, null, null, null, null, null, orderBy, null);
             ArrayList<TaskerContract.TaskEntry> taskEntries = new ArrayList<TaskerContract.TaskEntry>();
             if (data != null && data.moveToFirst()) {
 
@@ -69,8 +65,9 @@ public class TaskerDb extends SQLiteOpenHelper {
 
                     entry.setId(data.getString(data.getColumnIndex(TaskerContract.TaskEntry._ID)));
                     entry.setTask(data.getString(data.getColumnIndex(TaskerContract.TaskEntry.TASK)));
-                    entry.setTimeStamp(data.getString(data.getColumnIndex(TaskerContract.TaskEntry.TIMESTAMP)));
-                    entry.setTaskDue(data.getString(data.getColumnIndex(TaskerContract.TaskEntry.TASK_DUE)));
+                    entry.setTimeStamp(Long.toString(data.getLong(data.getColumnIndex(TaskerContract.TaskEntry.TIMESTAMP))));
+
+                    entry.setTaskDue(Long.toString(data.getLong(data.getColumnIndex(TaskerContract.TaskEntry.TASK_DUE))));
 
                     taskEntries.add(entry);
                 } while (data.moveToNext());
@@ -101,7 +98,7 @@ public class TaskerDb extends SQLiteOpenHelper {
         }
     }
 
-    public boolean deleteTask( String Id) {
+    public boolean deleteTask(String Id) {
         try {
             if (Id == null || Id.isEmpty())
                 throw new Exception("Id of Database entry to update cannot be null");

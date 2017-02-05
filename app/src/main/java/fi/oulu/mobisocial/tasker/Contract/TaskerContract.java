@@ -1,4 +1,4 @@
-package fi.oulu.mobisocial.tasker;
+package fi.oulu.mobisocial.tasker.Contract;
 
 import android.provider.BaseColumns;
 

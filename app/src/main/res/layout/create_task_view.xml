@@ -16,16 +16,19 @@
 
     <Button
         android:text="Pick a Date"
-        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:id="@+id/pickDateButton"
-        android:elevation="5dp" />
+        android:elevation="5dp"
+        android:layout_width="238dp"
+        android:layout_gravity="center"
+        />
 
     <Button
         android:text="Pick a Time"
-        android:layout_width="match_parent"
+        android:layout_width="238dp"
         android:layout_height="wrap_content"
         android:id="@+id/pickTimeButton"
+        android:layout_gravity="center"
         android:elevation="5dp" />
 
 </LinearLayout>

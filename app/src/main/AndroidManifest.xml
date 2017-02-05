@@ -19,6 +19,10 @@
             </intent-filter>
         </activity>
         <activity android:name=".LoginActivity"></activity>
+
+        <receiver android:name=".BroadCast.TaskerBroadCastReciever">
+
+        </receiver>
     </application>
 
 </manifest>

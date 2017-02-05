@@ -1,4 +1,4 @@
-package fi.oulu.mobisocial.tasker;
+package fi.oulu.mobisocial.tasker.ViewAdaptor;
 
 import android.content.Context;
 import android.widget.ArrayAdapter;
@@ -19,7 +19,6 @@ public class TaskArrayAdaptor extends ArrayAdapter<String> {
             dataMap.put(objects.get(i),i);
         }
     }
-
 
 
     @Override

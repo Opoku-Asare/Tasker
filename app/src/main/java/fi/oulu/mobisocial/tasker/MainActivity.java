@@ -1,35 +1,40 @@
 package fi.oulu.mobisocial.tasker;
 
+import android.app.AlarmManager;
 import android.app.DatePickerDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.TimePickerDialog;
-import android.content.ContentQueryMap;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.os.ParcelUuid;
+import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.LinearLayoutManager;
+import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
-import android.util.Log;
-import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.widget.ArrayAdapter;
+import android.view.View;
 import android.widget.Button;
 import android.widget.DatePicker;
 import android.widget.EditText;
-import android.widget.ListView;
 import android.widget.TimePicker;
 
-import java.security.PublicKey;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
+
+import fi.oulu.mobisocial.tasker.BroadCast.TaskerBroadCastReciever;
+import fi.oulu.mobisocial.tasker.Contract.TaskerContract;
+import fi.oulu.mobisocial.tasker.Contract.TaskerDb;
+import fi.oulu.mobisocial.tasker.ViewAdaptor.TaskRecyclerViewAdaptor;
 
 public class MainActivity extends AppCompatActivity {
     public static boolean USER_LOGGED_IN = false;
@@ -38,10 +43,12 @@ public class MainActivity extends AppCompatActivity {
     public static final String LOG_ID = "Tasker";
     public static SharedPreferences appSharePreference;
     public static TaskerDb database;
-    private ListView listView;
-    private ArrayList<String> listData;
-    private TaskArrayAdaptor listViewDataAdaptor;
-
+    private RecyclerView recyclerView;
+    private RecyclerView.LayoutManager layoutManager;
+    private ArrayList<TaskerContract.TaskEntry> cardDataSet;
+    private TaskRecyclerViewAdaptor recyclerViewAdaptor;
+    public static final String TASKER_FULL_DATE_FORMAT="EEE, d MMM yyyy HH:mm:ss";
+    public static final int TASKER_NOTIFICATION_ID=198901287;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -49,23 +56,44 @@ public class MainActivity extends AppCompatActivity {
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        recyclerView = (RecyclerView) findViewById(R.id.main_recycler_view);
+        layoutManager = new LinearLayoutManager(this);
+        recyclerView.setLayoutManager(layoutManager);
+
         FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 AlertDialog dialog = buildTaskDialog();
                 dialog.show();
-              
+
             }
         });
 
         appSharePreference = PreferenceManager.getDefaultSharedPreferences(this);
         database = new TaskerDb(getApplicationContext());
 
-        listView = (ListView) findViewById(R.id.mainListView);
-        prepareListView();
+        prepareCardView();
 
 
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        if (!USER_LOGGED_IN) {
+            startLoginActivity();
+        }
+
+
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        database.close();
     }
 
     private void startLoginActivity() {
@@ -88,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog.Builder dialog = new AlertDialog.Builder(this);
         View dialogView = getLayoutInflater().inflate(R.layout.create_task_view, null);
         dialog.setView(dialogView);
+        dialog.setTitle("Create Task");
         final Calendar calendar = Calendar.getInstance();
         Button pickAdate = (Button) dialogView.findViewById(R.id.pickDateButton);
         Button pickATime = (Button) dialogView.findViewById(R.id.pickTimeButton);
@@ -126,7 +155,17 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(DialogInterface dialogInterface, int i) {
                 String task = taskInfo.getText().toString().trim();
                 String taskDue = Long.toString(calendar.getTimeInMillis());
-                database.createTask(task, taskDue);
+                long result = database.createTask(task, taskDue);
+                if (result > -1) {
+                    TaskerContract.TaskEntry entry = new TaskerContract.TaskEntry();
+                    entry.setId(Long.toString(result));
+                    entry.setTask(task);
+                    entry.setTaskDue(taskDue);
+
+                    recyclerViewAdaptor.insertItem(entry, 0);
+
+                    setAlarm(entry);
+                }
 
 
             }
@@ -141,57 +180,69 @@ public class MainActivity extends AppCompatActivity {
         return dialog.create();
     }
 
-    private void prepareListView() {
-        ArrayList<TaskerContract.TaskEntry> entries = database.readTask();
+    private void setAlarm(TaskerContract.TaskEntry entry) {
+       /* Intent intent = new Intent(MainActivity.this, TaskerBroadCastReciever.class);
+        intent.putExtra(TaskerContract.TaskEntry.TASK, entry.getTask());
+        intent.putExtra(TaskerContract.TaskEntry.TASK_DUE, formateDate(entry.getTaskDue(),TASKER_FULL_DATE_FORMAT));
+        intent.setAction(Long.toString(System.currentTimeMillis()));//dummy action to keep the extras
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(MainActivity.this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
 
-        /*String[] values = new String[]{"Android", "iPhone", "WindowsMobile",
-                "Blackberry", "WebOS", "Ubuntu", "Windows7", "Max OS X",
-                "Linux", "OS/2", "Ubuntu", "Windows7", "Max OS X", "Linux",
-                "OS/2", "Ubuntu", "Windows7", "Max OS X", "Linux", "OS/2",
-                "Android", "iPhone", "WindowsMobile"};*/
+        Calendar alarmCalendar=Calendar.getInstance();
+        alarmCalendar.setTimeInMillis(new Long(entry.getTaskDue()));
+        //set alarm
+        AlarmManager alarmManager=(AlarmManager)getSystemService(ALARM_SERVICE);
+        alarmManager.set (AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime()+60 * 1000, pendingIntent);
 
-        listData= new ArrayList<String>();
+        NotificationManager notificationManager = (NotificationManager)
+               getSystemService(NOTIFICATION_SERVICE);
 
-        for (TaskerContract.TaskEntry entry : entries) {
-            listData.add(entry.getTask());
-        }
+        //if notification is selected
+        Intent myIntent = new Intent(this,TaskerBroadCastReciever.class);
 
-        listViewDataAdaptor = new TaskArrayAdaptor(this, R.layout.list_view_item, R.id.sample_list_view_item, listData);
-        listView.setAdapter(listViewDataAdaptor);
+        //Since this can happen in the future, wrap it on a pending intent
+        PendingIntent pIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+       String formated= entry.getTask()+" "+formateDate(entry.getTaskDue(),TASKER_FULL_DATE_FORMAT);
+        // build notification
+        Notification notification  = new Notification.Builder(this)
+                .setContentTitle("Tasker")
+                .setContentText(formated )
+                .setSmallIcon(R.drawable.ic_launcher)
+                .setContentIntent(pIntent)
+                .setWhen(dateFromLongString(entry.getTaskDue()).getTime())
+                .setAutoCancel(true)
+                .build();*/
+        //clear automatically when clicked
+//                .addAction(R.drawable.icon, "Option 1", pIntent)
+//                .addAction(R.drawable.icon, "Option 2", pIntent)
 
+//        notificationManager.notify(MainActivity.TASKER_NOTIFICATION_ID, notification);
     }
 
-    private void refreshListView() {
-        ArrayList<TaskerContract.TaskEntry> entries = database.readTask();
-        listData.clear();
-
-
-        for (TaskerContract.TaskEntry entry : entries) {
-            listData.add(entry.getTask());
-        }
-
-        listViewDataAdaptor.addAll(listData);
-        listViewDataAdaptor.notifyDataSetChanged();
+    private void prepareCardView() {
+        cardDataSet = database.readTask();
+        recyclerViewAdaptor = new TaskRecyclerViewAdaptor(cardDataSet);
+        recyclerView.setAdapter(recyclerViewAdaptor);
     }
 
-    @Override
-    protected void onResume() {
+    public static String formateDate(String dateLongString, String format) {
+        Date date = new Date();
 
-        super.onResume();
-
-        if (!USER_LOGGED_IN) {
-            startLoginActivity();
-        }
-
-
+        long dateLong = new Long(dateLongString);
+        date.setTime(dateLong);
+        SimpleDateFormat sf = new SimpleDateFormat(format);
+        return sf.format(date);
     }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        database.close();
+    public static String formateDate(Date date, String format) {
+        SimpleDateFormat sf = new SimpleDateFormat(format);
+        return sf.format(date);
     }
+    public static Date dateFromLongString(String dateLongString){
+        Date date = new Date();
 
+        long dateLong = new Long(dateLongString);
+        date.setTime(dateLong);
+        return date;
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
